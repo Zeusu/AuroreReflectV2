@@ -22,6 +22,10 @@ public class Directory extends File{
 		if(!this.isDirectory()) throw new NotADirectoryException(this.getAbsolutePath());
 	}
 	
+	public Directory(File f) {
+		this(f.toURI());
+	}
+	
 	public static Directory fromURL(URL url) {
 		try {
 			return new Directory(url.toURI());
