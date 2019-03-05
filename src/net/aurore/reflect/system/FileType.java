@@ -28,4 +28,8 @@ public enum FileType {
 		return OTHER;
 	}
 	
+	public boolean isTypeOf(File file) {
+		return file.getName().matches(regex);
+	}
+	
 }

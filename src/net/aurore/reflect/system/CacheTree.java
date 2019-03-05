@@ -23,11 +23,14 @@ public abstract class CacheTree {
 	protected String context;
 	protected String name;
 	
+	private final boolean isRoot;
+	
 	public CacheTree(final ClassLoader cl, final URL url) {
 		contextLoader = cl;
 		branchs = new HashMap<>();
 		leaves = new HashSet<>();
 		context = "";
+		isRoot = true;
 		build(FileUtil.fromUrl(url));
 	}
 	
@@ -35,6 +38,7 @@ public abstract class CacheTree {
 		contextLoader = cl;
 		branchs = new HashMap<>();
 		leaves = new HashSet<>();
+		isRoot = false;
 		this.context = context;
 	}
 	
@@ -47,7 +51,7 @@ public abstract class CacheTree {
 	private Class<?> findClass(Queue<String> path) throws ClassNotFoundException{
 		String item = path.poll();
 		if(path.isEmpty() && leaves.contains(item)) {
-			return contextLoader.loadClass(getFullName() + "." + path);
+			return contextLoader.loadClass(getFullName() + "." + item);
 		}else if (branchs.containsKey(item)) {
 			return branchs.get(item).findClass(path);
 		}
@@ -68,10 +72,12 @@ public abstract class CacheTree {
 	
 	private CacheTree findTree(Queue<String> path){
 		final String name = path.poll();
-		if(path.isEmpty() && this.name.equals(name))
-			return this;
-		else if(branchs.containsKey(name))
-			return branchs.get(name).findTree(path);
+		if(branchs.containsKey(name)) {
+			CacheTree next = branchs.get(name);
+			if(path.isEmpty())
+				return next;
+			return next.findTree(path);
+		}
 		return null;
 	}
 	
@@ -95,6 +101,7 @@ public abstract class CacheTree {
 				branchs.put(child.getName(), new DirectoryCacheTree(contextLoader,new Directory(child),getFullName()));
 				break;
 			case JAR:
+				branchs.put(child.getName(), new JarCacheTree(contextLoader, context, child));
 				break;
 			case CLASS:
 				leaves.add(child.getName().replace(FileType.CLASS_EXTENSION, ""));
@@ -118,6 +125,8 @@ public abstract class CacheTree {
 	}
 	
 	public final String getFullName() {
+		if(isRoot)
+			return "";
 		if(!context.equals("")) {
 			return context + "." + name;
 		}
@@ -128,7 +137,7 @@ public abstract class CacheTree {
 	@Override
 	public String toString() {
 		StringBuffer buffer = new StringBuffer();
-		return toString(buffer,"-");
+		return toString(buffer," ");
 	}
 	
 	public String toString(StringBuffer buffer, String prefix) {
@@ -152,13 +161,19 @@ public abstract class CacheTree {
 	
 	public static void main(String[] args) {
 		Classpath.register(Classpath.contexctCL());
+		Classpath.register(ClassLoader.getSystemClassLoader());
 		for(URL url : Classpath.getUrls()) {
 			try {
-				System.out.println(new DirectoryCacheTree(Classpath.contexctCL(), url).toString());
-			}catch(Exception e) {}
+				System.out.println(url);
+				CacheTree tree = new DirectoryCacheTree(Classpath.contexctCL(), url);
+				System.out.println(tree);
+				/*System.out.println(tree.findClass("net.aurore.reflect.util.Classpath"));
+				System.out.println(tree.findClasses("net.aurore.reflect.system"));*/
+			}catch(Exception e) {
+				e.printStackTrace();
+			}
 		}
 		
 	}
-	
 	
 }
